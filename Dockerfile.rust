@@ -44,10 +44,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /build/target/release/server /usr/local/bin/server
 
-# Copy whisper models
-RUN mkdir -p /app/models/whisper
-COPY models/whisper/ggml-base.en.bin /app/models/whisper/ggml-base.en.bin
-
 WORKDIR /app
 EXPOSE 8000
 CMD ["server"]
