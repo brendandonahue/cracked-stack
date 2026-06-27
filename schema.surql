@@ -2,18 +2,20 @@
 -- Auth access method
 -- ──────────────────────────────────────────────────────────────
 DEFINE ACCESS OVERWRITE account ON DATABASE TYPE RECORD
-  SIGNUP ( CREATE user CONTENT {
-    email: $email,
-    name: $name,
-    pass: crypto::argon2::generate($pass),
-    role: $role,
-    created_at: time::now()
-  })
-  SIGNIN (
+  SIGNUP {
+    CREATE user CONTENT {
+      email: $email,
+      name: $name,
+      pass: crypto::argon2::generate($pass),
+      role: $role,
+      created_at: time::now()
+    }
+  }
+  SIGNIN {
     SELECT * FROM user
     WHERE email = $email AND crypto::argon2::compare(pass, $pass)
     LIMIT 1
-  )
+  }
   DURATION FOR TOKEN 1d, FOR SESSION 4w2d;
 
 -- ──────────────────────────────────────────────────────────────
