@@ -1,4 +1,4 @@
-Software stack for tile-elite:
+Software stack for cracked-stack:
 
 **Frontend:** SvelteKit, Tailwind, DaisyUI  
 **Mobile (optional):** Tauri  

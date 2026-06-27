@@ -1,5 +1,5 @@
 services:
-  tile-elite-nginx:
+  cracked-stack-nginx:
     image: nginx:alpine
     restart: unless-stopped
     volumes:
@@ -15,7 +15,7 @@ services:
       timeout: 5s
       retries: 3
 
-  tile-elite-rust-server:
+  cracked-stack-rust-server:
     build:
       context: ./server
       dockerfile: ../Dockerfile.rust

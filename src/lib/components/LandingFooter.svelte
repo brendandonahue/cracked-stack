@@ -1,5 +1,5 @@
 <script lang="ts">
-  import logo from '$lib/public/tile-elite.jpg';
+  import logo from '$lib/public/cracked-stack.jpg';
   import { COMPANY_NAME, CONTACT_EMAIL } from '$lib/legal/constants';
 
   const year = new Date().getFullYear();

@@ -45,11 +45,11 @@ echo "$(date --utc +%FT%TZ): Releasing new server version."
 docker compose build
 
 # Get current container IDs for API and Web services
-OLD_CONTAINERS=$(docker compose ps -q tile-elite-rust-server)
+OLD_CONTAINERS=$(docker compose ps -q cracked-stack-rust-server)
 
 # Scale up API service to two replicas
 echo "⚡ Scaling up to 2 replicas..."
-BUILD_VERSION=$BUILD_VERSION docker compose up -d --no-deps --scale tile-elite-rust-server=2
+BUILD_VERSION=$BUILD_VERSION docker compose up -d --no-deps --scale cracked-stack-rust-server=2
 
 echo "⏳ Waiting for new containers to be healthy..."
 sleep 5  # or better: poll health via Caddy admin API or custom script
@@ -63,7 +63,7 @@ fi
 
 # Scale back to 1 (or keep 2 if you want replicas)
 echo "📉 Scaling back to 1 replica..."
-docker compose up -d --no-deps --scale tile-elite-rust-server=1
+docker compose up -d --no-deps --scale cracked-stack-rust-server=1
 
 echo "$(date --utc +%FT%TZ): 📦 Pre-deploy DB backup..."
 bash "$(dirname "$0")/scripts/backup.sh"
@@ -96,7 +96,7 @@ else
 fi
 
 # Need to restart nginx on new build because of symlinks, most likely
-docker compose restart tile-elite-nginx
+docker compose restart cracked-stack-nginx
 
 ELAPSED=$((SECONDS - START_TIME))
 MINUTES=$((ELAPSED / 60))

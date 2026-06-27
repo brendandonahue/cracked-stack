@@ -1,10 +1,10 @@
 #!/bin/bash
-# SurrealDB backup script for tile-elite
+# SurrealDB backup script for cracked-stack
 # Usage: bash scripts/backup.sh
-# Cron (daily 2 AM):  0 2 * * * /home/dev/Code/tile-elite/scripts/backup.sh >> /var/log/surrealdb-backup.log 2>&1
+# Cron (daily 2 AM):  0 2 * * * /home/dev/Code/cracked-stack/scripts/backup.sh >> /var/log/surrealdb-backup.log 2>&1
 set -euo pipefail
 
-REPO_DIR="/home/dev/Code/tile-elite"
+REPO_DIR="/home/dev/Code/cracked-stack"
 BACKUP_DIR="/home/dev/backups/surrealdb"
 RETAIN_DAYS=14
 TIMESTAMP=$(date --utc +%Y%m%dT%H%M%SZ)
@@ -12,7 +12,7 @@ BACKUP_FILE="$BACKUP_DIR/backup-$TIMESTAMP.surql.gz"
 
 # ---------------------------------------------------------------------------
 # Remote rsync target — set BACKUP_RSYNC_DEST in .env or override here.
-# Example:  user@backup-server:/backups/tile-elite/surrealdb
+# Example:  user@backup-server:/backups/cracked-stack/surrealdb
 # Leave empty to skip remote copy.
 # ---------------------------------------------------------------------------
 BACKUP_RSYNC_DEST="${BACKUP_RSYNC_DEST:-}"
