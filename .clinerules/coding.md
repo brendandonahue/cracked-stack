@@ -28,6 +28,9 @@ Prefer `POST /graphql` for queries and mutations when possible.
 
 GRAPHQL QUERIES: single-line strings only. Newlines break mutations/queries.
 
+## Surql
+SURREALDB SURQL FILES: single-line only. Newlines break schemas and definitions. 
+
 ## Testing
 
 Ddd test coverage for each new feature added to the app, ensuring the app has updated test coverage at all times. Frontend tests are run with `npm run test` and backend uses `cargo test`. Comprehensive test coverage already exists for existing features.
