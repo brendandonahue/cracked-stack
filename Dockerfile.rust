@@ -1,0 +1,53 @@
+# -------------------
+# Builder stage
+FROM rustlang/rust:nightly-bookworm-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    clang \
+    llvm-dev \
+    libclang-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswresample-dev \
+    libswscale-dev \
+    libavfilter-dev \
+    libavdevice-dev \
+    cmake \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN rustup component add rustfmt --toolchain nightly    
+
+WORKDIR /build
+
+COPY Cargo.toml Cargo.lock .
+RUN mkdir -p src && echo 'fn main() { println!("dummy"); }' > src/main.rs
+RUN cargo build --release --locked
+COPY . .
+RUN touch src/*.rs
+RUN cargo build --release --locked
+
+# -------------------
+# Runtime stage
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    ffmpeg \
+    libssl3 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/target/release/server /usr/local/bin/server
+
+# Copy whisper models
+RUN mkdir -p /app/models/whisper
+COPY models/whisper/ggml-base.en.bin /app/models/whisper/ggml-base.en.bin
+
+WORKDIR /app
+EXPOSE 8000
+CMD ["server"]

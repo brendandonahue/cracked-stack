@@ -1,0 +1,51 @@
+# .dockerignore (project root)
+
+# Common junk
+.git
+.gitignore
+.github
+.gitattributes
+
+# Editor / OS files
+.vscode
+.idea
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Build artifacts (critical for Rust!)
+target/
+Cargo.lock  # optional — include if you don't want lockfile changes triggering rebuilds every time
+
+# Node / frontend stuff (if building SvelteKit in Docker)
+node_modules/
+dist/
+build/
+.svelte-kit/
+.vercel/
+.output/
+
+# Docker / Compose files (no need to send to daemon)
+docker-compose*
+Dockerfile*
+*.dockerignore
+
+# Docs, tests, etc.
+docs/
+tests/
+test/
+__tests__/
+*.md
+LICENSE
+README*
+
+# Large files you don't need in images
+models/whisper/*.bin     # ← important! prevents sending 142 MB model every build
+# But we COPY it explicitly in Dockerfile.rust, so it's safe to ignore here
+
+# Temp / logs
+tmp/
+log/
+logs/
+*.log
