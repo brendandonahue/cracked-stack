@@ -21,8 +21,11 @@ use auth::{
     Db,
     AuthUser,
 };
+mod uploads;
+use uploads::{upload, get_file, delete_file};
 use graphql::graphql_proxy;
 use notifications::send_password_reset_email;
+
 use rocket_governor::{Method as M, Quota, RocketGovernable, RocketGovernor};
 use rocket::http::{Cookie, CookieJar, SameSite};
 use time::Duration;
@@ -349,7 +352,9 @@ async fn main() {
     info!("✅ SurrealDB initialized successfully");
 
     let limits = Limits::new()
-        .limit("data", 2_u64.mebibytes());
+        .limit("data", 2_u64.mebibytes())
+        .limit("file", 10_u64.mebibytes());
+
 
     let figment = Figment::from(rocket::Config::default())
         .merge(Serialized::defaults(rocket::Config {
@@ -380,7 +385,11 @@ async fn main() {
             request_password_reset,
             reset_password,
             graphql_proxy,
+            upload,
+            get_file,
+            delete_file,
         ])
+
         .launch()
         .await
         .unwrap();

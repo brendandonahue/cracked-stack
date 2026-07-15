@@ -43,7 +43,9 @@
             {#if $currentUser}
                 <li><a onclick={() => nav('/dashboard')}>🏠 Dashboard</a></li>
                 <li><a onclick={() => nav('/items')}>📋 Items</a></li>
+                <li><a onclick={() => nav('/files')}>🗂️ Files</a></li>
                 <li><a onclick={() => nav('/profile')}>👤 Profile</a></li>
+
                 <li><a onclick={() => { auth.logout(); goto('/'); drawerOpen = false; }}>🚪 Logout</a></li>
 
                 <!-- User info card -->

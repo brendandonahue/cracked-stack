@@ -27,10 +27,22 @@
   </button>
 
   <button
+      onclick={() => goto('/files')}
+      aria-current={page.url.pathname.startsWith('/files') ? 'page' : undefined}
+      class="text-base-content"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-19.5 0v6a2.25 2.25 0 0 0 2.25 2.25h15a2.25 2.25 0 0 0 2.25-2.25v-6m-19.5 0a2.25 2.25 0 0 1 2.25-2.25h15a2.25 2.25 0 0 1 2.25 2.25M5.25 9.75V6.75A2.25 2.25 0 0 1 7.5 4.5h3.879a1.5 1.5 0 0 1 1.06.44l1.122 1.12a1.5 1.5 0 0 0 1.06.44H16.5a2.25 2.25 0 0 1 2.25 2.25v1.5" />
+    </svg>
+    <span class="dock-label">Files</span>
+  </button>
+
+  <button
       onclick={() => goto('/profile')}
       aria-current={page.url.pathname === '/profile' ? 'page' : undefined}
       class="text-base-content"
   >
+
     <svg class="size-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
       <g fill="currentColor" stroke-linejoin="miter" stroke-linecap="butt">
         <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-linecap="square" stroke-miterlimit="10" stroke-width="2"></circle>

@@ -96,3 +96,45 @@ export async function deleteItem(id: string): Promise<void> {
   const query = `mutation deleteItem($id: ID!) { deleteItem(id: $id) }`;
   await graphqlQuery(query, { id: recordId });
 }
+
+// ──────────────────────────────────────────────────────────────
+// File uploads  (POST /upload, GET /files/<id>, DELETE /files/<id>)
+// Uses a raw fetch (not apiFetch) so the browser can set its own
+// multipart/form-data boundary; apiFetch always forces
+// Content-Type: application/json.
+// ──────────────────────────────────────────────────────────────
+
+export interface UploadedFile {
+  id: string;
+  url: string;
+  filename: string;
+  size: number;
+  public: boolean;
+}
+
+export async function uploadFile(file: File, opts: { public?: boolean } = {}): Promise<UploadedFile> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (opts.public !== undefined) {
+    formData.append('public', String(opts.public));
+  }
+
+  const res = await fetch(`${BASE_URL}/upload`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+
+  return handleResponse<UploadedFile>(res);
+}
+
+export function getFileUrl(id: string): string {
+  return `${BASE_URL}/files/${id}`;
+}
+
+export async function deleteFile(id: string): Promise<void> {
+  const res = await apiFetch(`/files/${id}`, { method: 'DELETE' });
+  await handleResponse(res);
+}
+
+

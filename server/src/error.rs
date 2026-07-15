@@ -13,6 +13,10 @@ pub enum Error {
     #[error("unauthorized")]
     Unauthorized,
 
+    #[error("forbidden")]
+    Forbidden,
+
+
     #[error("bad request: {0}")]
     BadRequest(String),
 
@@ -50,7 +54,9 @@ impl Error {
     pub fn http_status(&self) -> Status {
         match self {
             Error::Unauthorized => Status::Unauthorized,
+            Error::Forbidden => Status::Forbidden,
             Error::BadRequest(_) => Status::BadRequest,
+
             Error::Db(_) => Status::InternalServerError,
             Error::Internal(_) => Status::InternalServerError,
             Error::BadGateway => Status::BadGateway,
@@ -68,7 +74,9 @@ impl Error {
     pub fn message(&self) -> String {
         match self {
             Error::Unauthorized => "unauthorized".to_string(),
+            Error::Forbidden => "forbidden".to_string(),
             Error::BadRequest(msg) => msg.clone(),
+
             Error::Db(_) => self.to_string(),
             Error::Internal(msg) => {
                 log_error!("Internal server error: {}", msg);
@@ -188,7 +196,18 @@ mod tests {
     }
 
     #[test]
+    fn forbidden_maps_to_403() {
+        assert_eq!(Error::Forbidden.http_status(), Status::Forbidden);
+    }
+
+    #[test]
+    fn forbidden_message() {
+        assert_eq!(Error::Forbidden.message(), "forbidden");
+    }
+
+    #[test]
     fn bad_request_maps_to_400() {
+
         assert_eq!(
             Error::BadRequest("missing field".to_string()).http_status(),
             Status::BadRequest

@@ -27,5 +27,17 @@ DEFINE FIELD OVERWRITE used       ON password_reset_tokens TYPE bool DEFAULT fal
 DEFINE INDEX OVERWRITE idx_reset_token ON password_reset_tokens FIELDS token UNIQUE;
 DEFINE INDEX OVERWRITE idx_reset_email ON password_reset_tokens FIELDS email;
 
+-- File uploads (metadata; binary content is stored on disk under UPLOAD_DIR)
+DEFINE TABLE OVERWRITE file SCHEMAFULL PERMISSIONS FOR select WHERE public = true OR owner = $auth.id OR $auth.role = "admin", FOR create WHERE $auth.id != NONE, FOR update, delete WHERE owner = $auth.id OR $auth.role = "admin";
+DEFINE FIELD OVERWRITE filename      ON file TYPE string;
+DEFINE FIELD OVERWRITE original_name ON file TYPE string;
+DEFINE FIELD OVERWRITE content_type  ON file TYPE string;
+DEFINE FIELD OVERWRITE size          ON file TYPE int;
+DEFINE FIELD OVERWRITE owner         ON file TYPE record<user>;
+DEFINE FIELD OVERWRITE public        ON file TYPE bool DEFAULT false;
+DEFINE FIELD OVERWRITE created_at    ON file TYPE datetime DEFAULT time::now();
+
 -- Enable GraphQL
 DEFINE CONFIG OVERWRITE GRAPHQL AUTO;
+
+

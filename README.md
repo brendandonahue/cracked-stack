@@ -44,8 +44,12 @@ All routes are defined in `server/src/main.rs` `routes![]`. This is the authorit
 | `POST` | `/request-password-reset` | — | Send password reset email |
 | `POST` | `/reset-password` | — | Apply new password via token |
 | `POST` | `/graphql` | ✓ | GraphQL proxy to SurrealDB |
+| `POST` | `/upload` | ✓ | Upload a file (multipart/form-data, field `file`, optional `public` bool); returns `{ id, url }` |
+| `GET` | `/files/<id>` | ✓* | Serve a file's bytes. Public files are open to anyone; private files require the owner or an admin (`*` — guard is optional, authorization enforced in the handler) |
+| `DELETE` | `/files/<id>` | ✓ | Delete a file (owner or admin only) — removes both the DB record and the file on disk |
 
 ---
+
 
 ## Project Structure
 
@@ -74,8 +78,10 @@ cracked-stack/
 │       ├── main.rs             # Routes, CORS, Rocket config
 │       ├── auth.rs             # Db struct, AuthUser guard, SurrealDB connection
 │       ├── graphql.rs          # GraphQL proxy handler
+│       ├── uploads.rs          # File upload/serve/delete (POST /upload, GET & DELETE /files/<id>)
 │       ├── notifications.rs    # Password reset email (SMTP)
 │       └── error.rs            # Shared Error type
+
 │
 ├── schema.surql                # SurrealDB schema (run once on a fresh DB)
 ├── seed.surql                  # Demo seed data
@@ -191,11 +197,13 @@ The `AuthUser` guard in `server/src/auth.rs` extracts and validates the cookie o
 
 ## Database Schema
 
-`schema.surql` defines three tables:
+`schema.surql` defines four tables:
 
 - **`user`** — email, name, hashed password, role (`user` | `admin`), created_at
 - **`item`** — demo CRUD table with row-level ownership (replace with your domain)
 - **`password_reset_tokens`** — short-lived tokens for password reset emails
+- **`file`** — metadata for uploaded files (owner, filename, content type, size, public flag); binary content lives on disk under `UPLOAD_DIR` (`./uploads` locally, `/uploads` in Docker via the `uploads-volume`)
+
 
 SurrealDB GraphQL is auto-generated from these tables via `DEFINE CONFIG GRAPHQL AUTO`.
 
