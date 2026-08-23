@@ -48,7 +48,7 @@
     <span class="loading loading-spinner loading-lg"></span>
   </div>
 {:else}
-  <div class="flex flex-col min-h-screen font-mono">
+  <div class="flex flex-col min-h-screen font-sans antialiased">
     {#if isPublicPage(page.url.pathname)}
       {@render children()}
     {:else if $isAuthenticated}

@@ -140,10 +140,10 @@ surreal start --user root --pass root --bind 127.0.0.1:8001 file:./surreal.db
 ### 4. Apply the schema and seed data
 
 ```bash
-surreal import --conn ws://127.0.0.1:8001 --user root --pass root \
+surreal import --endpoint ws://127.0.0.1:8001 --user root --pass root \
   --ns crackedstack --db crackedstack schema.surql
 
-surreal import --conn ws://127.0.0.1:8001 --user root --pass root \
+surreal import --endpoint ws://127.0.0.1:8001 --user root --pass root \
   --ns crackedstack --db crackedstack seed.surql
 ```
 
@@ -220,14 +220,22 @@ SurrealDB GraphQL is auto-generated from these tables via `DEFINE CONFIG GRAPHQL
 
 ## Deployment
 
-The project ships with a complete Docker Compose setup.
+The project ships with Docker Compose plus a host-level Caddy reverse proxy for automatic HTTPS.
 
 ```bash
 # On your server (Caddy handles TLS)
+cp Caddyfile.example /path/to/Caddyfile   # set CADDY_EMAIL, SVELTE_HOST, ROCKET_HOST
 ./deploy.sh
 ```
 
-`deploy.sh` builds the SvelteKit static bundle, builds the Rust Docker image, pushes to your registry, and restarts the Compose stack. `nginx.conf` serves `build/` and reverse-proxies `/api` to the Rocket container.
+`deploy.sh` builds the SvelteKit static bundle, builds the Rust image, and restarts the Compose stack. `nginx.conf` serves `build/`. Caddy (see `Caddyfile.example`) terminates TLS and reverse-proxies:
+
+| Host env | Proxies to |
+|---|---|
+| `SVELTE_HOST` | `cracked-stack-nginx:80` |
+| `ROCKET_HOST` | `cracked-stack-rust-server:8000` |
+
+Containers expect a shared external Docker network named `app-net` (create with `docker network create app-net`).
 
 ---
 

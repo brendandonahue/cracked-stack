@@ -19,9 +19,14 @@
 
     let drawerOpen = $state(false);
 
-    function nav(path: string) {
-        goto(path);
+    function closeDrawer() {
         drawerOpen = false;
+    }
+
+    async function handleLogout() {
+        await auth.logout();
+        drawerOpen = false;
+        await goto('/');
     }
 </script>
 
@@ -41,12 +46,16 @@
                 </label>
             </li>
             {#if $currentUser}
-                <li><a onclick={() => nav('/dashboard')}>🏠 Dashboard</a></li>
-                <li><a onclick={() => nav('/items')}>📋 Items</a></li>
-                <li><a onclick={() => nav('/files')}>🗂️ Files</a></li>
-                <li><a onclick={() => nav('/profile')}>👤 Profile</a></li>
+                <li><a href="/dashboard" onclick={closeDrawer}>🏠 Dashboard</a></li>
+                <li><a href="/items" onclick={closeDrawer}>📋 Items</a></li>
+                <li><a href="/files" onclick={closeDrawer}>🗂️ Files</a></li>
+                <li><a href="/profile" onclick={closeDrawer}>👤 Profile</a></li>
 
-                <li><a onclick={() => { auth.logout(); goto('/'); drawerOpen = false; }}>🚪 Logout</a></li>
+                <li>
+                    <button type="button" class="w-full text-left" onclick={handleLogout}>
+                        🚪 Logout
+                    </button>
+                </li>
 
                 <!-- User info card -->
                 <li class="mt-4">
@@ -82,7 +91,8 @@
                 {/if}
             </div>
             <div class="navbar-center">
-                <a href="/" class="btn btn-ghost text-xl font-bold tracking-tight">
+                <a href="/" class="btn btn-ghost text-xl font-display font-bold tracking-tight gap-2">
+                    <img src="/images/logo.jpg" alt="" class="w-7 h-7 rounded-md object-cover" width="28" height="28" aria-hidden="true" />
                     cracked<span class="text-primary">stack</span>
                 </a>
             </div>

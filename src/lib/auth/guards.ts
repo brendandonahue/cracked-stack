@@ -18,6 +18,13 @@ export function isPublicPage(path: string): boolean {
 }
 
 /**
+ * Inverse of isPublicPage — true when the path requires a logged-in user.
+ */
+export function isProtectedPath(path: string): boolean {
+  return !isPublicPage(path);
+}
+
+/**
  * All authenticated users land on /dashboard after login.
  */
 export function getDefaultRedirectPath(_userRole: string | undefined): string {
