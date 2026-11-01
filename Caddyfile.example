@@ -1,0 +1,57 @@
+# Caddy reverse proxy for cracked-stack
+# Copy to Caddyfile and set the env vars (or replace placeholders).
+#
+# Required env vars:
+#   CADDY_EMAIL   — ACME account email for Let's Encrypt
+#   SVELTE_HOST   — public frontend host (e.g. example.com)
+#   ROCKET_HOST   — public API host (e.g. api.example.com)
+#
+# Proxies to the Docker Compose services in docker-compose.yml
+# (cracked-stack-nginx, cracked-stack-rust-server) on the shared app-net network.
+
+{
+	email {$CADDY_EMAIL}
+}
+
+# Catch-all HTTP → HTTPS redirect
+:80 {
+	redir https://{host}{uri} permanent
+}
+
+# Frontend (SvelteKit static build via nginx)
+{$SVELTE_HOST} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		-Server
+	}
+
+	encode zstd gzip
+
+	reverse_proxy cracked-stack-nginx:80
+}
+
+# API (Rocket.rs)
+{$ROCKET_HOST} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		-Server
+	}
+
+	encode zstd gzip
+
+	reverse_proxy cracked-stack-rust-server:8000 {
+		header_up Host {http.request.host}
+		header_up X-Real-IP {http.request.remote.host}
+
+		transport http {
+			versions h2c 1.1
+		}
+
+		lb_try_duration 5s
+		lb_try_interval 500ms
+	}
+}
