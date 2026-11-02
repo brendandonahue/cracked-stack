@@ -134,16 +134,16 @@ APP_URL=http://localhost:5173
 ### 3. Start SurrealDB
 
 ```bash
-surreal start --user root --pass root --bind 127.0.0.1:8001 file:./surreal.db
+surreal start --bind 127.0.0.1:8001 --log info --user root --pass root rocksdb://C:/surrealdb/dev.db
 ```
 
 ### 4. Apply the schema and seed data
 
 ```bash
-surreal import --endpoint ws://127.0.0.1:8001 --user root --pass root \
+surreal import --endpoint http://127.0.0.1:8001 --user root --pass root \
   --ns crackedstack --db crackedstack schema.surql
 
-surreal import --endpoint ws://127.0.0.1:8001 --user root --pass root \
+surreal import --endpoint http://127.0.0.1:8001 --user root --pass root \
   --ns crackedstack --db crackedstack seed.surql
 ```
 
