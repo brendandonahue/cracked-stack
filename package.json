@@ -10,6 +10,10 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
+    "ios:icons": "tauri icon src-tauri/app-icon.svg --ios-color '#0F1C32'",
+    "ios:build": "tauri ios build --export-method debugging",
+    "ios:install": "node scripts/ios-install.mjs",
+    "ios:device": "npm run ios:build && npm run ios:install",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

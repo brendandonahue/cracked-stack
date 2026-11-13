@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "yap",
+  "productName": "cracked-stack",
   "version": "0.1.0",
   "identifier": "com.bdonahue.yap",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "yap",
+        "title": "cracked-stack",
         "width": 1920,
         "height": 1080
       }
@@ -30,6 +30,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "iOS": {
+      "developmentTeam": "KQG876G5PV"
+    }
   }
 }
