@@ -39,6 +39,7 @@ duplicating long explanations.
 - Server reads `SURREALDB_HOST`, `SURREALDB_PORT` (default 8001), `SURREALDB_USER`, `SURREALDB_PASS`, `SURREALDB_NS`, `SURREALDB_DB`, `UPLOAD_DIR`, plus SMTP vars. These match `docker-compose.yml`.
 - README's "Configure environment variables" block lists `SURREAL_URL`/`SURREAL_USER`/… — that does NOT match the code. Trust `SURREALDB_*`.
 - `SURREALDB_NS`/`DB`/`USER`/`PASS` use `.expect()` — missing vars panic.
+- Email From: `SMTP_FROM` (falls back to `SMTP_USER`) + optional `SMTP_FROM_NAME`; empty = unset. See `build_from_mailbox` in [`server/src/notifications.rs`](../server/src/notifications.rs). Never log SMTP credentials.
 - CORS origins are hardcoded in `main.rs` (`http://localhost:1420`, `https://crackedstack.com`); update when changing domains.
 - Auth cookie is `Secure` + `SameSite=Strict` → local HTTP dev may need localhost handling (browsers treat localhost as secure context).
 
