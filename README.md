@@ -214,7 +214,7 @@ SurrealDB GraphQL is auto-generated from these tables via `DEFINE CONFIG GRAPHQL
 1. **Replace `item`** — edit `schema.surql`, `seed.surql`, `src/lib/api.ts` (Item section), and `src/routes/items/` with your domain model
 2. **Add roles** — extend `UserRole` in `src/lib/auth/guards.ts` and add role-gating in `isRoleAllowedForPath`
 3. **Add REST routes** — add a new `.rs` module in `server/src/`, `mod` it in `main.rs`, and add to `routes![]`
-4. **Style** — swap the DaisyUI theme in `src/app.css` (`data-theme` attribute)
+4. **Style** — the app uses the custom DaisyUI theme `cracked` in `src/app.css`, set with `data-theme="cracked"` on `<html>`
 
 ---
 

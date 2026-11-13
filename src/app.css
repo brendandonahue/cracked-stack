@@ -1,41 +1,45 @@
 @import "tailwindcss";
 @source "../node_modules/layerchart/dist";
+
+/* Built-in DaisyUI themes stay off so every screen shares one palette. */
 @plugin "daisyui" {
-  themes: all;
+  themes: false;
 }
 
+/* cracked — navy field, cyan lightning, amber spark, violet slab.
+   Tuned so each brand color works as text on the field and as a button fill. */
 @plugin "daisyui/theme" {
-  name: "coffee";
-  default: false;
-  prefersdark: false;
+  name: "cracked";
+  default: true;
+  prefersdark: true;
   color-scheme: "dark";
-  --color-base-100: oklch(24% 0.023 329.708);
-  --color-base-200: oklch(21% 0.021 329.708);
-  --color-base-300: oklch(16% 0.019 329.708);
-  --color-base-content: oklch(72.354% 0.092 79.129);
-  --color-primary: oklch(71.996% 0.123 62.756);
-  --color-primary-content: oklch(14.399% 0.024 62.756);
-  --color-secondary: oklch(47% 0.157 37.304);
-  --color-secondary-content: oklch(86.893% 0.005 199.194);
-  --color-accent: oklch(51% 0.262 276.966);
-  --color-accent-content: oklch(88.524% 0.014 224.389);
-  --color-neutral: oklch(16.51% 0.015 326.261);
-  --color-neutral-content: oklch(83.302% 0.003 326.261);
-  --color-info: oklch(79.49% 0.063 184.558);
-  --color-info-content: oklch(15.898% 0.012 184.558);
-  --color-success: oklch(74.722% 0.072 131.116);
-  --color-success-content: oklch(14.944% 0.014 131.116);
-  --color-warning: oklch(88.15% 0.14 87.722);
-  --color-warning-content: oklch(17.63% 0.028 87.722);
-  --color-error: oklch(77.318% 0.128 31.871);
-  --color-error-content: oklch(15.463% 0.025 31.871);
-  --radius-selector: 1rem;
-  --radius-field: 0.5rem;
+  --color-base-100: oklch(16.5% 0.028 255);
+  --color-base-200: oklch(21% 0.032 255);
+  --color-base-300: oklch(26% 0.034 255);
+  --color-base-content: oklch(95% 0.012 220);
+  --color-primary: oklch(82% 0.13 205);
+  --color-primary-content: oklch(18% 0.045 230);
+  --color-secondary: oklch(76% 0.15 58);
+  --color-secondary-content: oklch(20% 0.045 55);
+  --color-accent: oklch(74% 0.13 295);
+  --color-accent-content: oklch(20% 0.05 295);
+  --color-neutral: oklch(32% 0.03 255);
+  --color-neutral-content: oklch(94% 0.01 220);
+  --color-info: oklch(80% 0.11 220);
+  --color-info-content: oklch(18% 0.04 230);
+  --color-success: oklch(78% 0.12 175);
+  --color-success-content: oklch(18% 0.04 175);
+  --color-warning: oklch(84% 0.14 88);
+  --color-warning-content: oklch(22% 0.05 70);
+  --color-error: oklch(73% 0.16 25);
+  --color-error-content: oklch(18% 0.05 25);
+  --radius-selector: 0.75rem;
+  --radius-field: 0.6rem;
   --radius-box: 1rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
-  --depth: 0;
+  --depth: 1;
   --noise: 0;
 }
 
@@ -51,6 +55,7 @@ html {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -63,4 +68,178 @@ samp,
 pre,
 .font-mono {
   font-family: var(--font-mono);
+}
+
+::selection {
+  background: color-mix(in oklch, var(--color-primary) 32%, transparent);
+  color: var(--color-base-content);
+}
+
+section[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+@keyframes cs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cs-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes cs-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(2%, -3%, 0) scale(1.08);
+  }
+}
+
+@keyframes cs-grid {
+  to {
+    background-position: 64px 64px;
+  }
+}
+
+@keyframes cs-comet {
+  from {
+    left: 0;
+  }
+  to {
+    left: calc(100% - 0.5rem);
+  }
+}
+
+@keyframes cs-sheen {
+  from {
+    transform: translateX(-130%);
+  }
+  to {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes cs-dash {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+
+.cs-enter {
+  animation: cs-rise 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.cs-float {
+  animation: cs-float 7s ease-in-out infinite;
+}
+
+.cs-aurora {
+  background:
+    radial-gradient(ellipse 48% 42% at 12% 18%, color-mix(in oklch, var(--color-primary) 28%, transparent), transparent 62%),
+    radial-gradient(ellipse 36% 32% at 88% 8%, color-mix(in oklch, var(--color-secondary) 22%, transparent), transparent 58%),
+    radial-gradient(ellipse 40% 36% at 72% 88%, color-mix(in oklch, var(--color-accent) 20%, transparent), transparent 60%);
+  animation: cs-drift 16s ease-in-out infinite alternate;
+}
+
+.cs-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--color-base-content) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--color-base-content) 7%, transparent) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse at center, black 15%, transparent 72%);
+  animation: cs-grid 32s linear infinite;
+}
+
+.cs-comet {
+  animation: cs-comet 4.8s linear infinite;
+}
+
+.cs-dash {
+  stroke-dasharray: 5 9;
+  animation: cs-dash 1.6s linear infinite;
+}
+
+.cs-sheen {
+  position: relative;
+  overflow: hidden;
+}
+
+.cs-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 32%, color-mix(in oklch, white 45%, transparent) 50%, transparent 68%);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+
+.cs-sheen:hover::after {
+  animation: cs-sheen 0.75s ease;
+}
+
+/* Hover3D is an inline-grid sized by the image. Force it to the column. */
+.cs-stage .hover-3d {
+  display: grid;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cs-stage .hover-3d > :first-child {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.cs-icon {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group:hover .cs-icon {
+  transform: translateY(-2px) rotate(-6deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: cs-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 28%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .cs-enter,
+  .cs-float,
+  .cs-aurora,
+  .cs-grid,
+  .cs-comet,
+  .cs-dash,
+  .cs-sheen::after,
+  .reveal {
+    animation: none !important;
+  }
+
+  .group:hover .cs-icon {
+    transform: none;
+  }
 }
