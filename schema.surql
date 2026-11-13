@@ -37,6 +37,19 @@ DEFINE FIELD OVERWRITE owner         ON file TYPE record<user>;
 DEFINE FIELD OVERWRITE public        ON file TYPE bool DEFAULT false;
 DEFINE FIELD OVERWRITE created_at    ON file TYPE datetime DEFAULT time::now();
 
+-- Stripe payments (written ONLY by the Rocket webhook handler on the root client; users can read their own rows via GraphQL but can never create/update/delete them)
+DEFINE TABLE OVERWRITE payment SCHEMAFULL PERMISSIONS FOR select WHERE owner = $auth.id OR $auth.role = "admin", FOR create, update, delete NONE;
+DEFINE FIELD OVERWRITE session_id ON payment TYPE string;
+DEFINE FIELD OVERWRITE owner      ON payment TYPE record<user>;
+DEFINE FIELD OVERWRITE plan_id    ON payment TYPE string;
+DEFINE FIELD OVERWRITE plan_name  ON payment TYPE string;
+DEFINE FIELD OVERWRITE amount     ON payment TYPE int;
+DEFINE FIELD OVERWRITE currency   ON payment TYPE string;
+DEFINE FIELD OVERWRITE status     ON payment TYPE string DEFAULT "paid";
+DEFINE FIELD OVERWRITE created_at ON payment TYPE datetime DEFAULT time::now();
+DEFINE INDEX OVERWRITE idx_payment_session ON payment FIELDS session_id UNIQUE;
+DEFINE INDEX OVERWRITE idx_payment_owner ON payment FIELDS owner;
+
 -- Enable GraphQL
 DEFINE CONFIG OVERWRITE GRAPHQL AUTO;
 

@@ -23,6 +23,8 @@ use auth::{
 };
 mod uploads;
 use uploads::{upload, get_file, delete_file};
+mod stripe;
+use stripe::{plans, create_checkout, webhook};
 use graphql::graphql_proxy;
 use notifications::send_password_reset_email;
 
@@ -388,6 +390,9 @@ async fn main() {
             upload,
             get_file,
             delete_file,
+            plans,
+            create_checkout,
+            webhook,
         ])
 
         .launch()

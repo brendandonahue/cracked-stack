@@ -24,6 +24,7 @@ A production-ready full-stack application starter. Clone it, replace the demo `i
 - **GraphQL API** — SurrealDB auto-generates a typed GraphQL schema from your tables; Rocket proxies it to the frontend
 - **Route guards** — SvelteKit layout checks auth on every navigation; unauthenticated users are redirected to `/login`
 - **Toast notifications** — lightweight store-driven toast system
+- **Stripe payments** — small custom integration (no SDK): hosted Checkout Sessions with server-owned prices, signed webhook (HMAC-SHA256) that records payments, demo at `/payments`
 - **Rate limiting** — Rocket Governor guards on all auth endpoints
 - **CORS** — configured per environment in `main.rs`
 
@@ -47,6 +48,35 @@ All routes are defined in `server/src/main.rs` `routes![]`. This is the authorit
 | `POST` | `/upload` | ✓ | Upload a file (multipart/form-data, field `file`, optional `public` bool); returns `{ id, url }` |
 | `GET` | `/files/<id>` | ✓* | Serve a file's bytes. Public files are open to anyone; private files require the owner or an admin (`*` — guard is optional, authorization enforced in the handler) |
 | `DELETE` | `/files/<id>` | ✓ | Delete a file (owner or admin only) — removes both the DB record and the file on disk |
+| `GET` | `/stripe/plans` | — | Demo plan catalogue (prices are owned by the server) and whether Stripe is configured |
+| `POST` | `/stripe/checkout` | ✓ | Body `{ plan_id }`. Creates a Stripe Checkout Session and returns `{ url }` to redirect the browser to |
+| `POST` | `/stripe/webhook` | Stripe signature | Called by Stripe. Verifies `Stripe-Signature` (HMAC-SHA256, 5 min tolerance) and records a paid session in the `payment` table. Never call it from the frontend |
+
+---
+
+## Stripe payments
+
+A small custom integration in `server/src/stripe.rs` — plain REST calls, no Stripe SDK.
+
+```
+Browser → POST /stripe/checkout {plan_id} → Rocket → Stripe (creates Checkout Session)
+Browser ← { url } ← Rocket           Browser → redirected to Stripe-hosted checkout
+Stripe  → POST /stripe/webhook (signed) → Rocket verifies HMAC → UPSERT payment:<session id>
+Browser → /payments → GraphQL `payment` (PERMISSIONS: owner or admin can read; nobody can write)
+```
+
+- **Prices live on the server** (`PLANS` in `stripe.rs`); the client only sends a plan id. Replace the three demo plans with your own.
+- **Payments are only written by the webhook**, on the root DB client. The `payment` table denies create/update/delete to users, so a payment can't be forged through GraphQL. The record id is the Checkout Session id, so repeated webhook deliveries are idempotent.
+- **Card data never touches your server** — customers pay on Stripe-hosted Checkout.
+
+Setup (test mode):
+
+1. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `APP_BASE_URL` (see `.env.example`; `docker-compose.yml` passes them to the Rust container).
+2. Re-import `schema.surql` to create the `payment` table.
+3. Forward webhooks locally: `stripe listen --forward-to localhost:8000/stripe/webhook` (it prints the `whsec_…` secret). In production, add an endpoint `https://<ROCKET_HOST>/stripe/webhook` in the Stripe Dashboard for `checkout.session.completed` and `checkout.session.async_payment_succeeded`.
+4. Sign in, open **Payments**, and pay with test card `4242 4242 4242 4242`.
+
+If `STRIPE_SECRET_KEY` is unset the server stays healthy; `/stripe/checkout` returns `503` and the Payments page shows a notice.
 
 ---
 
@@ -65,6 +95,7 @@ cracked-stack/
 │   │   ├── reset-password/     # Password reset confirm
 │   │   ├── dashboard/          # Authenticated home
 │   │   ├── items/              # Demo CRUD resource ← replace with your domain
+│   │   ├── payments/           # Demo Stripe checkout + payment history
 │   │   └── profile/            # User profile + logout
 │   └── lib/
 │       ├── api.ts              # apiFetch + graphqlQuery + item helpers
@@ -79,6 +110,7 @@ cracked-stack/
 │       ├── auth.rs             # Db struct, AuthUser guard, SurrealDB connection
 │       ├── graphql.rs          # GraphQL proxy handler
 │       ├── uploads.rs          # File upload/serve/delete (POST /upload, GET & DELETE /files/<id>)
+│       ├── stripe.rs           # Stripe Checkout + signed webhook (GET /stripe/plans, POST /stripe/checkout, POST /stripe/webhook)
 │       ├── notifications.rs    # Password reset email (SMTP)
 │       └── error.rs            # Shared Error type
 
@@ -197,12 +229,13 @@ The `AuthUser` guard in `server/src/auth.rs` extracts and validates the cookie o
 
 ## Database Schema
 
-`schema.surql` defines four tables:
+`schema.surql` defines five tables:
 
 - **`user`** — email, name, hashed password, role (`user` | `admin`), created_at
 - **`item`** — demo CRUD table with row-level ownership (replace with your domain)
 - **`password_reset_tokens`** — short-lived tokens for password reset emails
 - **`file`** — metadata for uploaded files (owner, filename, content type, size, public flag); binary content lives on disk under `UPLOAD_DIR` (`./uploads` locally, `/uploads` in Docker via the `uploads-volume`)
+- **`payment`** — Stripe payments (owner, plan, amount in cents, currency, status). Readable by the owner or an admin; written only by the signed webhook on the root client
 
 
 SurrealDB GraphQL is auto-generated from these tables via `DEFINE CONFIG GRAPHQL AUTO`.

@@ -110,6 +110,9 @@
         <a href="/items" class="btn btn-outline justify-start gap-2">
           <span>➕</span> New Item
         </a>
+        <a href="/payments" class="btn btn-outline justify-start gap-2">
+          <span>💳</span> Payments
+        </a>
         <a href="/profile" class="btn btn-outline justify-start gap-2">
           <span>👤</span> Profile
         </a>

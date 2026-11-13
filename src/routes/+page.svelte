@@ -9,6 +9,7 @@
   import Boxes from '@lucide/svelte/icons/boxes';
   import Braces from '@lucide/svelte/icons/braces';
   import Cookie from '@lucide/svelte/icons/cookie';
+  import CreditCard from '@lucide/svelte/icons/credit-card';
   import Database from '@lucide/svelte/icons/database';
   import Fingerprint from '@lucide/svelte/icons/fingerprint';
   import FolderLock from '@lucide/svelte/icons/folder-lock';
@@ -21,6 +22,7 @@
   import Mail from '@lucide/svelte/icons/mail';
   import Menu from '@lucide/svelte/icons/menu';
   import MonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
+  import Receipt from '@lucide/svelte/icons/receipt';
   import ScrollText from '@lucide/svelte/icons/scroll-text';
   import Server from '@lucide/svelte/icons/server';
   import Shield from '@lucide/svelte/icons/shield';
@@ -29,6 +31,7 @@
   import Terminal from '@lucide/svelte/icons/terminal';
   import Users from '@lucide/svelte/icons/users';
   import Waypoints from '@lucide/svelte/icons/waypoints';
+  import Webhook from '@lucide/svelte/icons/webhook';
   import Zap from '@lucide/svelte/icons/zap';
 
   const repo = 'https://github.com/brendandonahue/cracked-stack';
@@ -51,6 +54,7 @@
     { icon: Database, label: 'SurrealDB' },
     { icon: Braces, label: 'GraphQL' },
     { icon: KeyRound, label: 'Argon2' },
+    { icon: CreditCard, label: 'Stripe' },
     { icon: Globe, label: 'Caddy' },
     { icon: MonitorSmartphone, label: 'Tauri' },
   ];
@@ -84,6 +88,13 @@
       plain: 'One command builds the interface, builds the API, and restarts the containers. The database is not exposed on the public internet.',
       detail: 'deploy.sh rolls the Compose stack. nginx serves the static build. Rocket listens for the API. SurrealDB stays on the private network.',
     },
+    {
+      icon: CreditCard,
+      tone: 'text-warning bg-warning/15',
+      title: 'It is ready to take a payment',
+      plain: 'A customer picks a plan, pays on a page Stripe hosts, and lands back in the app with a receipt. Card numbers never touch your server. The receipt only appears once Stripe says the money arrived.',
+      detail: 'A small custom Stripe integration, no SDK: Rocket creates the Checkout Session with prices it owns, and a webhook verified with HMAC-SHA256 writes the payment row. The payment table is read-only to users, so a receipt cannot be forged.',
+    },
   ];
 
   const shipped: { icon: Component; title: string; detail: string }[] = [
@@ -93,6 +104,9 @@
     { icon: Mail, title: 'Password reset', detail: 'A short-lived token is stored, emailed over SMTP, then marked used so it cannot be replayed.' },
     { icon: Braces, title: 'Generated GraphQL', detail: 'DEFINE CONFIG GRAPHQL AUTO. Rocket proxies the query with the caller’s session attached.' },
     { icon: FolderLock, title: 'Uploads', detail: 'Multipart upload. Private files are served only to the owner or an admin. Public files are explicit.' },
+    { icon: CreditCard, title: 'Stripe Checkout', detail: 'A custom integration with no SDK. Rocket opens a hosted Checkout Session, so card details never reach your server.' },
+    { icon: Webhook, title: 'Signed webhooks', detail: 'Stripe events are verified with HMAC-SHA256 and a five-minute window. A repeated delivery updates one payment, not two.' },
+    { icon: Receipt, title: 'Payments you cannot forge', detail: 'Prices live on the server. The payment table is written only by the webhook, and users can read just their own rows.' },
     { icon: Gauge, title: 'Rate limits', detail: 'Rocket Governor sits on the auth routes, so a script cannot hammer login or signup.' },
     { icon: Waypoints, title: 'Route guards', detail: 'The SvelteKit layout checks the session on every navigation and sends strangers to login.' },
     { icon: ShieldAlert, title: 'No self-serve admin', detail: 'Public signup cannot grant the admin role. That role is set in the database.' },
@@ -104,13 +118,13 @@
   const stations = [
     { k: '01', title: 'Browser', text: 'The SvelteKit app calls the API with credentials included. The cookie rides along. The page never handles the token.' },
     { k: '02', title: 'Caddy', text: 'TLS ends here. Certificates come from Let’s Encrypt. HTTP is redirected. HSTS is set. The containers are not on the open internet.' },
-    { k: '03', title: 'nginx + Rocket', text: 'nginx serves the static build. Rocket serves login, GraphQL, uploads, and the rest of the API, with CORS set for the environment.' },
+    { k: '03', title: 'nginx + Rocket', text: 'nginx serves the static build. Rocket serves login, GraphQL, uploads, Stripe checkout and webhooks, and the rest of the API, with CORS set for the environment.' },
     { k: '04', title: 'SurrealDB', text: 'Queries run as the signed-in record. Row permissions apply. GraphQL is generated from the tables.' },
   ];
 
   const steps = [
     { n: '1', title: 'Clone and configure', text: 'Node 20, Rust, and SurrealDB 2. Point the frontend at the API and the API at the database.' },
-    { n: '2', title: 'Import the schema', text: 'schema.surql creates user, item, password reset, and file. seed.surql adds a demo admin and a demo user.' },
+    { n: '2', title: 'Import the schema', text: 'schema.surql creates user, item, password reset, file, and payment. seed.surql adds a demo admin and a demo user.' },
     { n: '3', title: 'Run both sides', text: 'cargo run serves Rocket on port 8000. npm run dev serves SvelteKit on port 5173. Sign in and open the items screen.' },
     { n: '4', title: 'Replace item, then ship', text: 'The demo resource is the only thing that should become your domain. Then Caddyfile.example and deploy.sh put it up.' },
   ];
@@ -137,6 +151,10 @@
       a: 'The interface is built as a static single-page app, which is what Tauri wraps. The same screens run in the browser, and in the desktop and mobile shells, without a second frontend.',
     },
     {
+      q: 'Can it take payments?',
+      a: 'Yes. It ships with a small custom Stripe integration. Rocket creates a hosted Checkout Session from plans defined on the server, and a signed webhook records the payment once Stripe confirms it. Add your Stripe keys and open the Payments screen to try it in test mode. Replace the three demo plans with what you sell.',
+    },
+    {
       q: 'What is deliberately left for me?',
       a: 'Your tables, your screens, and your rules beyond the two roles already here: user and admin. The starter is opinionated about the platform and quiet about your domain.',
     },
@@ -147,7 +165,7 @@
   <title>crackedstack — the full stack, already finished</title>
   <meta
     name="description"
-    content="SvelteKit, Rocket, and SurrealDB with cookie sessions, Argon2, row-level permissions, file uploads, and Caddy automatic HTTPS. Clone it and replace the demo model."
+    content="SvelteKit, Rocket, and SurrealDB with cookie sessions, Argon2, row-level permissions, file uploads, a custom Stripe payments integration, and Caddy automatic HTTPS. Clone it and replace the demo model."
   />
 </svelte:head>
 
@@ -217,7 +235,7 @@
           </h1>
 
           <p class="cs-enter text-lg md:text-xl text-base-content/75 max-w-xl leading-relaxed mb-4" style="animation-delay: 140ms">
-            Sign-in, permissions, files, and HTTPS are the starting point — not the weekend you still owe yourself.
+            Sign-in, permissions, files, payments, and HTTPS are the starting point — not the weekend you still owe yourself.
             <strong class="font-semibold text-base-content">SvelteKit</strong> on the screen,
             <strong class="font-semibold text-base-content">Rocket</strong> in the middle,
             <strong class="font-semibold text-base-content">SurrealDB</strong> underneath,
@@ -307,7 +325,7 @@
             </div>
             <ul class="space-y-3 text-base-content/75">
               <li class="flex gap-3"><BadgeCheck size={18} class="text-primary mt-0.5 shrink-0" /> Svelte 5 runes, Tailwind, and this app’s DaisyUI theme. The build is a static SPA, so Tauri can wrap it.</li>
-              <li class="flex gap-3"><BadgeCheck size={18} class="text-primary mt-0.5 shrink-0" /> A typed Rocket API: cookie auth, a GraphQL proxy, uploads, CORS, and a governor on the auth routes.</li>
+              <li class="flex gap-3"><BadgeCheck size={18} class="text-primary mt-0.5 shrink-0" /> A typed Rocket API: cookie auth, a GraphQL proxy, uploads, a custom Stripe checkout with signed webhooks, CORS, and a governor on the auth routes.</li>
               <li class="flex gap-3"><BadgeCheck size={18} class="text-primary mt-0.5 shrink-0" /> SurrealDB with a schema, record access, and GraphQL generated from the tables. Permissions live next to the fields.</li>
               <li class="flex gap-3"><BadgeCheck size={18} class="text-primary mt-0.5 shrink-0" /> Compose for nginx and Rocket, a Caddyfile for the host, and a deploy script that rolls them forward.</li>
             </ul>
@@ -327,6 +345,7 @@
               <li class="flex gap-3"><BadgeCheck size={18} class="text-secondary mt-0.5 shrink-0" /> One customer does not see another customer’s records. An administrator can. That split is enforced in the database.</li>
               <li class="flex gap-3"><BadgeCheck size={18} class="text-secondary mt-0.5 shrink-0" /> The public address is HTTPS, with the certificate handled for you, and ordinary HTTP bounced over to it.</li>
               <li class="flex gap-3"><BadgeCheck size={18} class="text-secondary mt-0.5 shrink-0" /> Shipping is a script you can hand to someone. The database stays off the public network.</li>
+              <li class="flex gap-3"><BadgeCheck size={18} class="text-secondary mt-0.5 shrink-0" /> Customers can pay by card through Stripe. The card number never reaches your server, and a payment is recorded only after Stripe confirms it.</li>
             </ul>
           </div>
         </article>
@@ -342,9 +361,9 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {#each outcomes as item (item.title)}
+        {#each outcomes as item, i (item.title)}
           {@const Icon = item.icon}
-          <article class="reveal group card bg-base-100 border border-base-content/10 shadow-sm hover:border-primary/30 transition-colors">
+          <article class="reveal group card bg-base-100 border border-base-content/10 shadow-sm hover:border-primary/30 transition-colors {outcomes.length % 2 === 1 && i === outcomes.length - 1 ? 'md:col-span-2' : ''}">
             <div class="card-body p-7">
               <span class="cs-icon w-11 h-11 rounded-xl {item.tone} flex items-center justify-center mb-3">
                 <Icon size={22} />

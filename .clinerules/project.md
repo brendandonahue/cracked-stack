@@ -29,14 +29,25 @@ duplicating long explanations.
 - `GET /files/<id>` uses `Option<AuthUser>`; private files return 404 (not 403) to non-owners. Authorization is enforced in the handler using root `client`, not table permissions.
 - Rocket limits (`main.rs`): `data` 2 MiB, `file` 10 MiB.
 
+## Stripe ([`server/src/stripe.rs`](../server/src/stripe.rs))
+
+- Custom, SDK-free: `reqwest` form POST to `https://api.stripe.com/v1/checkout/sessions` (inline `price_data`, so no Dashboard products needed). Routes: `GET /stripe/plans`, `POST /stripe/checkout` (AuthUser + RateLimitGuard), `POST /stripe/webhook` (no auth — Stripe calls it; protected by `Stripe-Signature` HMAC-SHA256 over `<t>.<raw body>`, 5 min tolerance, constant-time compare via `hmac::verify_slice`).
+- Prices are in `PLANS` (server-side only). The client sends just `plan_id`; never accept amounts from the client.
+- `payment` rows are written ONLY by the webhook on the root `db.client` via `UPSERT payment:<checkout session id>` (idempotent for re-delivered events). `schema.surql` gives users `select` on own rows and `NONE` for create/update/delete — a Rust test (`users_can_read_only_their_own_payments_and_never_write_them`) enforces this against an in-memory SurrealDB; keep it passing.
+- The user is linked via Checkout `client_reference_id` = user record key (`user:abc` → `abc`); the webhook rebuilds `RecordId::new("user", key)`.
+- Env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `APP_BASE_URL` (falls back to `FRONTEND_URL`). Missing keys → `Error::StripeNotConfigured` (503), NOT a startup panic. Never log them. Container gets them via `docker-compose.yml`.
+- Webhook is not behind `AuthUser`, so Caddy must forward `/stripe/webhook` as-is (it does; ROCKET_HOST proxies everything). The `.env.example` `PUBLIC_STRIPE_PUBLISHABLE_KEY` / `STRIPE_PRICE_*` entries were removed: hosted Checkout needs neither.
+- Frontend: `getStripePlans`, `createCheckoutSession`, `getPayments`, `formatMoney` in `src/lib/api.ts`; demo page `src/routes/payments/`. `@stripe/stripe-js` / `svelte-stripe` in `package.json` are still unused (redirect flow, no Stripe.js).
+- Tests: `cargo test` now 53 passing; `npm run test` 108.
+
 ## Schema ([`schema.surql`](../schema.surql))
 
-- Tables: `user`, `item` (demo), `password_reset_tokens`, `file`. Access method `account` (RECORD, token 1d, session 4w2d). Everything uses `OVERWRITE` so it's re-runnable. GraphQL via `DEFINE CONFIG GRAPHQL AUTO`.
+- Tables: `user`, `item` (demo), `password_reset_tokens`, `file`, `payment`. Access method `account` (RECORD, token 1d, session 4w2d). Everything uses `OVERWRITE` so it's re-runnable. GraphQL via `DEFINE CONFIG GRAPHQL AUTO`.
 - Password reset runs on root `client` (the `password_reset_tokens` PERMISSIONS only matter for GraphQL/user sessions).
 
 ## Environment variables
 
-- Server reads `SURREALDB_HOST`, `SURREALDB_PORT` (default 8001), `SURREALDB_USER`, `SURREALDB_PASS`, `SURREALDB_NS`, `SURREALDB_DB`, `UPLOAD_DIR`, plus SMTP vars. These match `docker-compose.yml`.
+- Server reads `SURREALDB_HOST`, `SURREALDB_PORT` (default 8001), `SURREALDB_USER`, `SURREALDB_PASS`, `SURREALDB_NS`, `SURREALDB_DB`, `UPLOAD_DIR`, plus SMTP vars and the optional Stripe vars (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `APP_BASE_URL`). These match `docker-compose.yml`.
 - README's "Configure environment variables" block lists `SURREAL_URL`/`SURREAL_USER`/… — that does NOT match the code. Trust `SURREALDB_*`.
 - `SURREALDB_NS`/`DB`/`USER`/`PASS` use `.expect()` — missing vars panic.
 - Email From: `SMTP_FROM` (falls back to `SMTP_USER`) + optional `SMTP_FROM_NAME`; empty = unset. See `build_from_mailbox` in [`server/src/notifications.rs`](../server/src/notifications.rs). Never log SMTP credentials.
@@ -45,7 +56,7 @@ duplicating long explanations.
 
 ## Rate limiting
 
-- `RateLimitGuard` in `main.rs` = 1 req/second per client for all routes that use it (login, signup, validate, health, reset flows). `/graphql` and uploads are not rate limited.
+- `RateLimitGuard` in `main.rs` = 1 req/second per client for all routes that use it (login, signup, validate, health, reset flows, `/stripe/checkout`). `/graphql`, uploads and `/stripe/webhook` (Stripe's servers; signature-verified instead) are not rate limited.
 
 ## Deployment
 
@@ -57,6 +68,6 @@ duplicating long explanations.
 ## Tooling gotchas
 
 - Shell is Windows PowerShell 7: no `&&` between commands in old syntax-safe usage — prefer `cargo test --manifest-path server/Cargo.toml` from the repo root.
-- Backend baseline: `cargo test` → 25 passing tests (`auth`, `error`, `uploads`); ~8 dead-code warnings from unmounted modules (`notifications::send_sms`, etc.) are expected.
+- Backend baseline: `cargo test` → 53 passing tests (`auth`, `error`, `notifications`, `stripe`, `uploads`); ~8 dead-code warnings from unmounted modules (`notifications::send_sms`, etc.) are expected.
 - Frontend: `npm run test` (vitest + happy-dom), `npm run check`.
 - Tauri is optional (`src-tauri/`); `@stripe/stripe-js`, `better-auth`, `@zxing/*` appear in `package.json` but are not part of the documented template.

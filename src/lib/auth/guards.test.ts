@@ -51,6 +51,7 @@ describe('isPublicPage()', () => {
     expect(isPublicPage('/dashboard')).toBe(false);
     expect(isPublicPage('/items')).toBe(false);
     expect(isPublicPage('/files')).toBe(false);
+    expect(isPublicPage('/payments')).toBe(false);
     expect(isPublicPage('/profile')).toBe(false);
   });
 });
@@ -76,6 +77,7 @@ describe('isProtectedPath()', () => {
       '/dashboard',
       '/items',
       '/files',
+      '/payments',
       '/profile',
     ];
     for (const path of paths) {

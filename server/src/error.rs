@@ -46,6 +46,12 @@ pub enum Error {
 
     #[error("Invalid password reset token")]
     InvalidPasswordResetToken,
+
+    #[error("Stripe is not configured")]
+    StripeNotConfigured,
+
+    #[error("Invalid Stripe signature")]
+    InvalidStripeSignature,
 }
 
 impl Error {
@@ -67,6 +73,8 @@ impl Error {
             Error::PasswordResetTokenExpired => Status::BadRequest,
             Error::PasswordResetTokenUsed => Status::BadRequest,
             Error::InvalidPasswordResetToken => Status::BadRequest,
+            Error::StripeNotConfigured => Status::ServiceUnavailable,
+            Error::InvalidStripeSignature => Status::BadRequest,
         }
     }
 
@@ -90,6 +98,8 @@ impl Error {
             Error::PasswordResetTokenExpired => "Password reset token expired".to_string(),
             Error::PasswordResetTokenUsed => "Password reset token already used".to_string(),
             Error::InvalidPasswordResetToken => "Invalid password reset token".to_string(),
+            Error::StripeNotConfigured => "Payments are not configured".to_string(),
+            Error::InvalidStripeSignature => "Invalid Stripe signature".to_string(),
         }
     }
 }
@@ -277,6 +287,17 @@ mod tests {
         );
     }
 
+    #[test]
+    fn stripe_not_configured_maps_to_503() {
+        assert_eq!(Error::StripeNotConfigured.http_status(), Status::ServiceUnavailable);
+        assert_eq!(Error::StripeNotConfigured.message(), "Payments are not configured");
+    }
+
+    #[test]
+    fn invalid_stripe_signature_maps_to_400() {
+        assert_eq!(Error::InvalidStripeSignature.http_status(), Status::BadRequest);
+        assert_eq!(Error::InvalidStripeSignature.message(), "Invalid Stripe signature");
+    }
     #[test]
     fn unauthorized_message() {
         assert_eq!(Error::Unauthorized.message(), "unauthorized");

@@ -137,4 +137,68 @@ export async function deleteFile(id: string): Promise<void> {
   await handleResponse(res);
 }
 
+// ──────────────────────────────────────────────────────────────
+// Stripe payments  (GET /stripe/plans, POST /stripe/checkout)
+// Prices live on the server. The browser only picks a plan id and is then
+// redirected to Stripe-hosted Checkout. Payments are written by the signed
+// webhook (POST /stripe/webhook, called by Stripe — never by the frontend) and
+// read back through GraphQL, where table PERMISSIONS scope them to the owner.
+// ──────────────────────────────────────────────────────────────
 
+export interface StripePlan {
+  id: string;
+  name: string;
+  description: string;
+  /** Smallest currency unit (cents). */
+  amount: number;
+  currency: string;
+}
+
+export interface StripePlans {
+  /** False when the server has no STRIPE_SECRET_KEY, so Checkout would fail. */
+  configured: boolean;
+  plans: StripePlan[];
+}
+
+export interface Payment {
+  id: string;
+  session_id: string;
+  plan_id: string;
+  plan_name: string;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: string;
+}
+
+export async function getStripePlans(): Promise<StripePlans> {
+  const res = await apiFetch('/stripe/plans');
+  return handleResponse<StripePlans>(res);
+}
+
+/** Creates a Stripe Checkout Session and returns the hosted-page URL to redirect to. */
+export async function createCheckoutSession(planId: string): Promise<string> {
+  const res = await apiFetch('/stripe/checkout', {
+    method: 'POST',
+    body: JSON.stringify({ plan_id: planId }),
+  });
+  const data = await handleResponse<{ url: string }>(res);
+  return data.url;
+}
+
+export async function getPayments(): Promise<Payment[]> {
+  const query = `query getPayments { payment { id session_id plan_id plan_name amount currency status created_at } }`;
+  const result = await graphqlQuery(query);
+  return (result.data?.payment ?? [])
+    .slice()
+    .sort((a: Payment, b: Payment) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+/** Formats a minor-unit amount (e.g. 1900, 'usd') as a localized currency string ($19.00). */
+export function formatMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(amount / 100);
+  } catch {
+    return `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}`;
+  }
+}

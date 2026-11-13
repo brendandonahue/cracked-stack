@@ -49,6 +49,7 @@
                 <li><a href="/dashboard" onclick={closeDrawer}>🏠 Dashboard</a></li>
                 <li><a href="/items" onclick={closeDrawer}>📋 Items</a></li>
                 <li><a href="/files" onclick={closeDrawer}>🗂️ Files</a></li>
+                <li><a href="/payments" onclick={closeDrawer}>💳 Payments</a></li>
                 <li><a href="/profile" onclick={closeDrawer}>👤 Profile</a></li>
 
                 <li>
