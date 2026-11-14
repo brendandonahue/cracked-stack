@@ -1,4 +1,4 @@
-package com.bdonahue.yap
+package com.crackedstack.app
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
