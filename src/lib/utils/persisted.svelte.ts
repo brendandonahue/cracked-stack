@@ -1,5 +1,5 @@
 // src/lib/utils/persisted.ts
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 
 export function persisted<T>(
   key: string,

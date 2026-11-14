@@ -4,7 +4,7 @@
 // auth_token cookie is always forwarded to the Rocket API.
 // For CRUD operations prefer `graphqlQuery` over new REST endpoints.
 
-import { PUBLIC_API_URL } from '$env/static/public';
+import { PUBLIC_API_URL } from '$app/env/public';
 
 const BASE_URL = PUBLIC_API_URL;
 

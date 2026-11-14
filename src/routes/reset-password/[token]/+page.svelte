@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
     import { apiFetch } from '$lib/api';
 
 	let password = '';
@@ -9,10 +9,9 @@
 	let success = '';
 	let loading = false;
 
-	$: token = $page.params.token;
-
 	async function handleResetPassword(e: Event) {
 		e.preventDefault();
+		const token = page.params.token;
 		error = '';
 		success = '';
 		loading = true;

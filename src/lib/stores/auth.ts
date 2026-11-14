@@ -1,7 +1,7 @@
 // src/lib/stores/auth.ts
 import { writable, derived } from 'svelte/store';
-import { browser } from '$app/environment';
-import { PUBLIC_API_URL } from '$env/static/public';
+import { browser } from '$app/env';
+import { PUBLIC_API_URL } from '$app/env/public';
 
 export interface User {
   id: string;
