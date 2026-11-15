@@ -64,6 +64,7 @@ duplicating long explanations.
 - `nginx.conf` only serves static files; it does NOT reverse-proxy `/api` despite what README says — routing to the Rocket container is Caddy's job.
 - `Dockerfile.rust` uses nightly Rust (edition 2024 crate), build context is `./server`; runtime image installs ffmpeg + curl (healthcheck uses curl on `/health`).
 - `docker-compose.yml` passes OLLAMA_* vars but the AI module is unmounted.
+- Remote Ollama (Windows gaming PC, AMD 7900 XT): README "Local AI" section. Native Ollama for Windows, NOT a container (Docker Desktop GPU passthrough is NVIDIA-only; `ollama:rocm` needs `/dev/kfd`). Switch servers via `OLLAMA_BASE_URL` in `.env`. No mounted Rust code reads it yet; unmounted `ai.rs` reads `OLLAMA_CHAT_URL` / `OLLAMA_CHAT_COMPLETIONS_URL`. `docker-compose.yml.example` rust service doesn't pass `OLLAMA_*`.
 
 ## iOS / Tauri ([`src-tauri/`](../src-tauri/tauri.conf.json))
 

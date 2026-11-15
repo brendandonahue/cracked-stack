@@ -272,6 +272,182 @@ Containers expect a shared external Docker network named `app-net` (create with 
 
 ---
 
+## Local AI: use a Windows gaming PC as your Ollama server
+
+`docker-compose.yml.example` shows a full deployment that runs Ollama in a container next to the app. That works, but a CPU-only web server is slow for LLMs. If you have a gaming PC on the same LAN, you can run Ollama there on the GPU instead and point every app at it. This guide uses an AMD Radeon RX 7900 XT (20 GB VRAM) as the example.
+
+```
+Web server (CPU only, Docker)                 Gaming PC (Windows, AMD GPU)
+┌───────────────────────────┐   LAN :11434    ┌──────────────────────────┐
+│ Rocket container          │ ──────────────▶ │ Ollama for Windows       │
+│ OLLAMA_BASE_URL=http://   │                 │ models on the 7900 XT    │
+│   192.168.1.50:11434      │                 │ (ROCm v7 or Vulkan)      │
+└───────────────────────────┘                 └──────────────────────────┘
+```
+
+### Why it isn't a container on Windows
+
+Containerizing this specific setup doesn't work today, so the tutorial runs Ollama natively on Windows:
+
+- Docker Desktop's GPU passthrough on Windows (`--gpus`) is documented for **NVIDIA only**.
+- The `ollama/ollama:rocm` image expects `/dev/kfd` and `/dev/dri`. Under WSL2 these don't exist. AMD's ROCm-on-WSL exposes the GPU as `/dev/dxg`, and Ollama's Linux installer and container image don't support that path out of the box.
+- **Ollama for Windows** supports the 7900 XT natively (ROCm v7, with Vulkan as a fallback), runs as a background app, and serves the same HTTP API on port `11434`. To the apps it looks exactly like the container.
+
+If you want a container, run `ollama/ollama:rocm` on a Linux host with the AMD ROCm v7 driver (see [Ollama's Docker docs](https://docs.ollama.com/docker)). The rest of this guide (LAN access, `.env`, tuning) applies unchanged.
+
+### 1. Install and verify the GPU
+
+1. Install the latest AMD Adrenalin driver from amd.com. Ollama's Windows ROCm backend needs a ROCm v7 / HIP7-capable driver stack. Vulkan ships with the regular driver and is enabled by default, so Ollama can use the card either way.
+2. Install Ollama from [ollama.com/download](https://ollama.com/download) (`OllamaSetup.exe`, no Administrator needed). It starts in the background and serves `http://localhost:11434`.
+3. Pull the model the template defaults to and check it landed on the GPU:
+
+```powershell
+ollama pull qwen3:14b
+ollama run qwen3:14b "say hi"
+ollama ps
+```
+
+`ollama ps` must show `100% GPU` in the PROCESSOR column. `100% CPU` or a CPU/GPU split means the GPU isn't being used fully. Check `%LOCALAPPDATA%\Ollama\server.log` for the detected library (ROCm or Vulkan).
+
+### 2. Expose it on your LAN
+
+Ollama binds to `127.0.0.1` by default. Examples below use `192.168.1.50` for the gaming PC and `192.168.1.10` for the web server. Substitute your own addresses.
+
+1. **Give both machines fixed addresses.** Add DHCP reservations in your router (or set static IPs). The gaming PC's address is baked into `OLLAMA_BASE_URL` and into the bind address below, and the web server's address is baked into the firewall rule.
+2. **Bind Ollama to the PC's LAN address**, not `0.0.0.0`, so it doesn't listen on VPN or virtual adapters. Quit Ollama from the tray icon, then set a user environment variable (Settings → search "environment variables" → *Edit environment variables for your account*, or use `setx`):
+
+```powershell
+setx OLLAMA_HOST "192.168.1.50:11434"
+```
+
+   Start Ollama again from the Start menu. `http://localhost:11434` stops working once it is bound to the LAN address. The `ollama` CLI follows `OLLAMA_HOST`, so `ollama ps` still works. If the PC's address ever changes, Ollama won't start listening, so keep the reservation.
+3. **Set the network profile to Private** (Settings → Network & internet → your connection) and allow the port **from the web server only** (admin PowerShell):
+
+```powershell
+New-NetFirewallRule -DisplayName "Ollama from web server" -Direction Inbound -Protocol TCP -LocalPort 11434 -Action Allow -Profile Private -RemoteAddress 192.168.1.10/32
+```
+
+4. **From the web server**, confirm it is reachable:
+
+```bash
+curl http://192.168.1.50:11434/api/version
+curl http://192.168.1.50:11434/api/tags
+```
+
+> **Security:** Ollama has no authentication. Anyone who can reach the port can run inference on your GPU and call its management endpoints (pull, create and delete models). Never port-forward `11434` or add it to the Caddyfile. See [Security](#5-security-for-the-gaming-pc-ollama-server) below for the full threat model and hardening.
+
+### 3. Point the apps at it (`.env`)
+
+Edit the `.env` on the web server (the one `docker-compose.yml` reads). Nothing else changes per app:
+
+```bash
+OLLAMA_BASE_URL=http://192.168.1.50:11434
+OLLAMA_CS_MODEL=qwen3:14b
+```
+
+`docker-compose.yml` already passes both to the Rust container and defaults to `http://ollama:11434` when `OLLAMA_BASE_URL` is unset. Restart with `./deploy.sh` (or `docker compose up -d`). To switch back to an on-server Ollama, change the URL back (or remove the line).
+
+If you started from `docker-compose.yml.example`, drop the local Ollama container so it doesn't sit idle or block startup:
+
+1. Delete the `ollama:` service.
+2. Delete `ollama-data:` from `volumes:`.
+3. Delete the `ollama: condition: service_healthy` entry under the Rust server's `depends_on:`. Otherwise the server waits for a container that no longer exists.
+4. Add `- OLLAMA_BASE_URL=${OLLAMA_BASE_URL}` and `- OLLAMA_CS_MODEL=${OLLAMA_CS_MODEL}` to the Rust server's `environment:`. The example doesn't pass them today.
+5. Remove the now-unused `OLLAMA_HOST`, `OLLAMA_ORIGINS`, `OLLAMA_DEBUG`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_MAX_LOADED_MODELS` and `OLLAMA_NUM_PARALLEL` from the web server's `.env`. Those are server-side settings and now live on the gaming PC (next section).
+
+> **Current limitation:** the Ollama client code in `server/src/ai.rs` is not mounted in `main.rs`, and nothing in the mounted routes reads `OLLAMA_BASE_URL` yet. The variable is wired through Docker so it is ready when you mount an AI route. The unmounted `ai.rs` reads `OLLAMA_CHAT_URL` and `OLLAMA_CHAT_COMPLETIONS_URL` (default `http://ollama:11434/...`) rather than `OLLAMA_BASE_URL`. When you mount it, derive those URLs from `OLLAMA_BASE_URL` (or set them to `http://192.168.1.50:11434/api/chat` and `http://192.168.1.50:11434/v1/chat/completions`).
+
+### 4. Getting the most out of the GPU
+
+**Windows host**
+
+- Plug the gaming PC into **Ethernet**, not Wi-Fi.
+- Set the power plan to *High performance* / *Best performance* and stop the PC from sleeping, or the API goes offline when it's idle: `powercfg /change standby-timeout-ac 0`.
+- Ollama starts when you **log in**. Enable automatic sign-in (or leave the PC logged in) so it comes back after a reboot or power cut.
+- Keep the Adrenalin driver current, and enable **Resizable BAR / Smart Access Memory** in the BIOS if it isn't already.
+- Put models on a fast NVMe drive: set a user variable `OLLAMA_MODELS` (for example `D:\ollama\models`). This mostly affects model load time.
+- Don't game while the apps need the GPU. A running game and a loaded model compete for the same 20 GB of VRAM, and Ollama will spill to the CPU.
+
+**Ollama settings** (user environment variables on the gaming PC; quit and restart Ollama after changing them)
+
+| Variable | Suggested | Why |
+|---|---|---|
+| `OLLAMA_FLASH_ATTENTION` | `1` | Lower memory use at long context, and usually faster |
+| `OLLAMA_KV_CACHE_TYPE` | `q8_0` | Roughly halves KV-cache memory vs. the `f16` default, so more context fits. Requires flash attention. Go back to `f16` if you notice quality loss |
+| `OLLAMA_KEEP_ALIVE` | `-1` (or `24h`) | Keep the model resident. The default unloads after 5 minutes, so the next request pays a cold-load penalty |
+| `OLLAMA_CONTEXT_LENGTH` | `8192`–`32768` | Ollama chooses a default from your VRAM. Set it explicitly and confirm with `ollama ps` that the model still shows `100% GPU` |
+| `OLLAMA_NUM_PARALLEL` | `2`–`4` | Concurrent requests per model (default 1). Each slot adds context memory, so raise it only while VRAM allows |
+| `OLLAMA_MAX_LOADED_MODELS` | `1` (or `2` for small models) | Stops several models from fighting for VRAM |
+| `OLLAMA_GPU_OVERHEAD` | optional, bytes | Reserves VRAM for Windows and other apps if you hit out-of-memory errors |
+
+```powershell
+setx OLLAMA_FLASH_ATTENTION "1"
+setx OLLAMA_KV_CACHE_TYPE "q8_0"
+setx OLLAMA_KEEP_ALIVE "-1"
+setx OLLAMA_CONTEXT_LENGTH "16384"
+setx OLLAMA_NUM_PARALLEL "2"
+setx OLLAMA_MAX_LOADED_MODELS "1"
+```
+
+These are starting points, not benchmarked values. Change one at a time and re-check `ollama ps`.
+
+**Pick models that fit in 20 GB.** Full speed needs the whole model plus its context cache in VRAM. As a rough guide, 7B–14B models at 4-bit (like the default `qwen3:14b`) leave plenty of room for context. ~30B-class 4-bit models are around 18-20 GB by themselves and will likely spill to the CPU once you add context. Any CPU share in the PROCESSOR column of `ollama ps` means the model or context is too big.
+
+**ROCm vs Vulkan.** On Windows, Ollama can use either ROCm (when the driver exposes ROCm v7) or Vulkan, and Vulkan is on by default. Which is faster depends on the model and driver, so measure with `ollama run <model> --verbose` and compare `eval rate` (tokens/s). Set `OLLAMA_VULKAN=0` to turn Vulkan off and compare. If the PC also has an integrated GPU that Ollama picks by mistake, set `GGML_VK_VISIBLE_DEVICES` to the discrete GPU's index.
+
+**Optional:** Adrenalin's tuning panel can adjust the power limit or undervolt the card. Test stability thoroughly before relying on it for a server.
+
+### 5. Security for the gaming PC (Ollama server)
+
+**Native vs. Docker.** Running Ollama natively on Windows is the only setup that works with an AMD GPU (see above), and Docker wouldn't change the biggest risks. Native Ollama runs as your Windows user, so a compromised process can read that user's files (browser profiles, game launchers, documents). A container would limit that, but passing a GPU into it already weakens isolation, and bugs in Ollama's HTTP API are exposed the same way in both. On Linux, `ollama/ollama:rocm` in Docker is the better option and the hardening below still applies.
+
+**What can go wrong**
+
+| Risk | Why it matters |
+|---|---|
+| **No authentication** | Anyone who can reach `:11434` can use your GPU and call management endpoints (pull, create, delete models) |
+| **The web server is the internet-facing machine** | If it is compromised, an attacker can pivot to Ollama on the gaming PC, which also holds your personal data. This is the main threat |
+| **Wide firewall rules** | Allowing a whole subnet exposes Ollama to phones, TVs, IoT and guest devices |
+| **Binding to `0.0.0.0`** | Listens on every adapter, including VPN and virtual ones |
+| **Plain HTTP** | Prompts and responses cross the LAN unencrypted. For something like a customer-service agent, that may include customer data |
+
+**Hardening checklist** (the first four are already in the steps above)
+
+1. Allow the port from the **web server's IP only** (`-RemoteAddress <ip>/32`), not the whole subnet. This is the biggest improvement.
+2. Bind `OLLAMA_HOST` to the PC's LAN IP, not `0.0.0.0`.
+3. Use the **Private** network profile for the firewall rule.
+4. Never port-forward `11434` and never add it to the Caddyfile. Only the Rocket container should talk to it.
+5. **Remove any other Ollama firewall rules.** Windows may prompt you to allow `ollama.exe` on first run, which can create a broader rule that includes the Public profile. List them, and delete or disable any that are wider than your rule:
+
+```powershell
+Get-NetFirewallRule -DisplayName "*ollama*" | Format-Table DisplayName, Enabled, Profile, Direction, Action
+```
+
+6. Set `OLLAMA_NO_CLOUD` to `1` so Ollama's cloud features (remote inference and web search) stay off and the server is local-only: `setx OLLAMA_NO_CLOUD "1"`, then restart Ollama.
+7. **Keep Ollama updated.** The Windows app updates itself (tray icon → *Restart to update*). Past security issues have been in its HTTP API, so updates matter.
+8. Don't run anything else sensitive in the same Windows account if you can avoid it. Consider a separate, non-admin Windows user just for the Ollama server.
+
+**Stronger options**
+
+- **Separate VLAN or network segment** for the web server and gaming PC, if your router supports it, so a compromised web server can't reach the rest of your LAN.
+- **WireGuard or Tailscale** between the two machines. This encrypts the traffic and means no LAN port needs to be exposed. Bind Ollama to the VPN address and point `OLLAMA_BASE_URL` at it. More setup, but it is the proper fix for plaintext HTTP.
+- **Authenticating reverse proxy** on the PC (Caddy or nginx checking a bearer token) in front of Ollama, which then listens only on localhost. Probably overkill on a home LAN with the rules above, and the Rust code would need to send the token.
+
+**A note on the firewall rule.** The Rocket container reaches the PC through its Docker host, so the PC sees the **web server's LAN address** as the source, which is what the `/32` rule matches. If you use Docker's host networking or a different path, check the source address with `Get-NetTCPConnection -LocalPort 11434` while a request is running.
+
+### 6. Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| `curl` from the web server times out | The firewall rule only applies to the **Private** profile and to the single address in `-RemoteAddress`. Check the network profile, that the web server's IP matches the rule, and that Ollama was restarted after `setx OLLAMA_HOST` |
+| Connection refused | Ollama is still bound to localhost (`OLLAMA_HOST` not applied), the PC's IP changed so the bind failed, or Ollama isn't running. `Get-NetTCPConnection -LocalPort 11434` should show the PC's LAN IP |
+| `localhost:11434` stopped working on the PC | Expected once `OLLAMA_HOST` is bound to the LAN IP. Use `http://192.168.1.50:11434` (the `ollama` CLI already follows `OLLAMA_HOST`) |
+| Works until you reboot | Ollama starts at login (see the Windows host tips), and the PC may have gone to sleep |
+| `ollama ps` shows CPU | Model or context too large for VRAM, a game is using the GPU, or the driver is outdated. Read `%LOCALAPPDATA%\Ollama\server.log` |
+| Rocket container can't reach the PC | Use the PC's LAN IP, not `localhost` or `host.docker.internal`. The container runs on a different machine |
+
+---
+
 ## iOS (Tauri)
 
 The iOS project lives in `src-tauri/gen/apple/` (generated by `npx tauri ios init`, git-ignored). Requires macOS, Xcode, an Apple Development certificate, and the iOS Rust targets (`rustup target add aarch64-apple-ios`). The signing team is set in `src-tauri/tauri.conf.json` (`bundle.iOS.developmentTeam`).
