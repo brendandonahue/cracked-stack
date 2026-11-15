@@ -19,6 +19,47 @@ use rocket::fs::{TempFile};
 use rocket::tokio::fs::File;
 use rocket::tokio::io::AsyncReadExt;
 
+const DEFAULT_OLLAMA_BASE_URL: &str = "http://ollama:11434"; // fallback for prod (on-server container)
+const DEFAULT_OLLAMA_MODEL: &str = "qwen3:14b";
+
+// Ollama config comes from two env vars: OLLAMA_BASE_URL and OLLAMA_CS_MODEL.
+// Empty / whitespace-only values are treated as unset.
+fn ollama_base_url_from(value: Option<String>) -> String {
+    value
+        .map(|v| v.trim().trim_end_matches('/').to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| DEFAULT_OLLAMA_BASE_URL.to_string())
+}
+
+fn ollama_model_from(value: Option<String>) -> String {
+    value
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| DEFAULT_OLLAMA_MODEL.to_string())
+}
+
+fn ollama_base_url() -> String {
+    ollama_base_url_from(env::var("OLLAMA_BASE_URL").ok())
+}
+
+fn ollama_model() -> String {
+    ollama_model_from(env::var("OLLAMA_CS_MODEL").ok())
+}
+
+fn ollama_vision_model() -> String {
+    ollama_model_from(env::var("OLLAMA_VISION_MODEL").ok())
+}
+
+// Native Ollama endpoint: POST <base>/api/chat
+fn ollama_chat_url() -> String {
+    format!("{}/api/chat", ollama_base_url())
+}
+
+// OpenAI-compatible endpoint: POST <base>/v1/chat/completions
+fn ollama_chat_completions_url() -> String {
+    format!("{}/v1/chat/completions", ollama_base_url())
+}
+
 // Struct for form data
 #[derive(FromForm)]
 pub struct MediaUpload<'r> {
@@ -42,7 +83,7 @@ pub async fn generate(user: AuthUser, payload: Json<Value>) -> Result<Json<Value
     if user.role != "business" { return Err(Error::Unauthorized); }
     let mut p = payload.into_inner();
     p["stream"] = Value::Bool(false);           // important!
-    p["model"] = Value::String("qwen3:4b".into());
+    p["model"] = Value::String(ollama_model());
 
     let user_messages = match p.get("messages") {
         Some(Value::Array(arr)) => arr.clone(),
@@ -62,10 +103,8 @@ pub async fn generate(user: AuthUser, payload: Json<Value>) -> Result<Json<Value
 
     info!("Asking ollama");
 
-    let ollama_chat_completions_url = env::var("OLLAMA_CHAT_COMPLETIONS_URL").unwrap_or_else(|_| "http://ollama:11434/v1/chat/completions".to_string()); //fallback for prod
-
     let res = client
-        .post(&ollama_chat_completions_url)
+        .post(ollama_chat_completions_url())
         .json(&p)
         .send()
         .await
@@ -105,11 +144,11 @@ pub async fn image_route(user: AuthUser, mut upload: Form<MediaUpload<'_>>) -> R
 
     // Call Ollama API
     let client = Client::new();
-    let ollama_chat_url = env::var("OLLAMA_CHAT_URL").unwrap_or_else(|_| "http://ollama:11434/api/chat".to_string());
+    let model = ollama_vision_model();
     let response = client
-        .post(&ollama_chat_url)
+        .post(ollama_chat_url())
         .json(&json!({
-            "model": "llava",
+            "model": model,
             "messages": [{
                 "role": "user",
                 "content": upload.prompt,
@@ -124,11 +163,47 @@ pub async fn image_route(user: AuthUser, mut upload: Form<MediaUpload<'_>>) -> R
         let ollama_res: OllamaResponse = response.json().await.map_err(|e| Error::Internal(e.to_string()))?;
         Ok(Json(json!({
             "content": ollama_res.message.content,
-            "model": "llava",
+            "model": model,
             "success": true
         })))
     } else {
         Err(Error::BadRequest("Ollama error".to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn base_url_defaults_when_unset_or_blank() {
+        assert_eq!(ollama_base_url_from(None), "http://ollama:11434");
+        assert_eq!(ollama_base_url_from(Some("".into())), "http://ollama:11434");
+        assert_eq!(ollama_base_url_from(Some("   ".into())), "http://ollama:11434");
+    }
+
+    #[test]
+    fn base_url_is_trimmed_and_has_no_trailing_slash() {
+        assert_eq!(ollama_base_url_from(Some("http://192.168.1.50:11434".into())), "http://192.168.1.50:11434");
+        assert_eq!(ollama_base_url_from(Some(" http://192.168.1.50:11434/ ".into())), "http://192.168.1.50:11434");
+    }
+
+    #[test]
+    fn model_defaults_when_unset_or_blank() {
+        assert_eq!(ollama_model_from(None), "qwen3:14b");
+        assert_eq!(ollama_model_from(Some("  ".into())), "qwen3:14b");
+    }
+
+    #[test]
+    fn model_uses_env_value() {
+        assert_eq!(ollama_model_from(Some(" qwen3:4b ".into())), "qwen3:4b");
+    }
+
+    #[test]
+    fn endpoint_urls_are_derived_from_the_base_url() {
+        let base = ollama_base_url_from(Some("http://192.168.1.50:11434/".into()));
+        assert_eq!(format!("{}/api/chat", base), "http://192.168.1.50:11434/api/chat");
+        assert_eq!(format!("{}/v1/chat/completions", base), "http://192.168.1.50:11434/v1/chat/completions");
     }
 }
 

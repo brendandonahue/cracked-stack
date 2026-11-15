@@ -355,7 +355,7 @@ If you started from `docker-compose.yml.example`, drop the local Ollama containe
 4. Add `- OLLAMA_BASE_URL=${OLLAMA_BASE_URL}` and `- OLLAMA_CS_MODEL=${OLLAMA_CS_MODEL}` to the Rust server's `environment:`. The example doesn't pass them today.
 5. Remove the now-unused `OLLAMA_HOST`, `OLLAMA_ORIGINS`, `OLLAMA_DEBUG`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_MAX_LOADED_MODELS` and `OLLAMA_NUM_PARALLEL` from the web server's `.env`. Those are server-side settings and now live on the gaming PC (next section).
 
-> **Current limitation:** the Ollama client code in `server/src/ai.rs` is not mounted in `main.rs`, and nothing in the mounted routes reads `OLLAMA_BASE_URL` yet. The variable is wired through Docker so it is ready when you mount an AI route. The unmounted `ai.rs` reads `OLLAMA_CHAT_URL` and `OLLAMA_CHAT_COMPLETIONS_URL` (default `http://ollama:11434/...`) rather than `OLLAMA_BASE_URL`. When you mount it, derive those URLs from `OLLAMA_BASE_URL` (or set them to `http://192.168.1.50:11434/api/chat` and `http://192.168.1.50:11434/v1/chat/completions`).
+> **Current limitation:** the Ollama client code in `server/src/ai.rs` is not mounted in `main.rs`, and nothing in the mounted routes reads `OLLAMA_BASE_URL` yet. The variable is wired through Docker so it is ready when you mount an AI route. The unmounted `ai.rs` already reads only `OLLAMA_BASE_URL` (default `http://ollama:11434`) and `OLLAMA_CS_MODEL` (default `qwen3:14b`), and derives `/api/chat` and `/v1/chat/completions` from the base URL. The old `OLLAMA_CHAT_URL` and `OLLAMA_CHAT_COMPLETIONS_URL` variables are no longer used.
 
 ### 4. Getting the most out of the GPU
 
